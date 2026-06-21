@@ -82,7 +82,10 @@ All seven entities come from a **Zigbee2MQTT** pool sensor device (MQTT platform
 - **MQTT config entry:** `0ead95fcc110f3671631d772b1a17775`
 - **Zigbee IEEE:** `0x781c9dfffe110488` (unique_id suffix `_zigbee2mqtts`)
 
-> ⚠️ At time of documenting, all seven sensors read `unavailable` (`restored: true`) — i.e. the Zigbee device was not reporting. The tiles handle this with the **Error** state (see below). Bring the sensor online to see live values.
+> ⚠️ **The physical device is currently broken**, so all seven sensors read
+> `unavailable` (`restored: true`) and every bar shows the grey **Error** state.
+> This is expected behaviour, not a card fault — the tiles will show live values
+> again once a working BLE-YL01 / YK-S03 is paired and reporting.
 
 ---
 
@@ -130,7 +133,97 @@ All four use the **centred** gradient.
 
 ---
 
-## 5. Recreating / restoring the tiles
+## 5. pH handling code (down / out of range)
+
+Two pieces of template logic deal with pH being low, high, or invalid.
+
+### 5.1 The pH tile — error and out-of-range display
+
+The pH bar reads the raw state, flags an **Error** if it's missing or implausible
+(`unavailable` / `unknown` / `0` / `≥ 14`), then classifies the value against the
+ideal of **7.2 ± 0.3**:
+
+```jinja2
+{% set raw = states('sensor.pool_chem_ph') %}
+{% set val = raw | float(0) %}
+{% set is_err = raw in ['unavailable','unknown'] or (val == 0) or val >= 14 %}
+
+{% if is_err %}
+  Error
+{% elif val >= 7.2 - 0.3 and val <= 7.2 + 0.3 %}
+  Ideal {{ val }} pH          {# 6.9 – 7.5 → green #}
+{% elif val > 7.2 + 0.3 %}
+  Too High {{ val }} pH        {# > 7.5  → red, pH down needed #}
+{% else %}
+  Too Low {{ val }} pH         {# < 6.9  → orange, pH up needed #}
+{% endif %}
+```
+
+- **Too High (> 7.5)** = add pH-down / acid.
+- **Too Low (< 6.9)** = add pH-up.
+- **Error** = sensor down (its current state — the device is faulted).
+
+### 5.2 The Free Chlorine tile — recalc when pH is down/out of range
+
+Free chlorine's effectiveness depends on pH, and the tester derives FC from ORP +
+pH. When **pH is invalid** (`unavailable` / `unknown` / `0` / `≥ 14`) but **ORP is
+still valid**, the Free Chlorine bar recalculates an estimated FC from ORP alone
+and shows a purple **"Recalc"** label instead of the (now unreliable) measured
+value:
+
+```jinja2
+{% set raw   = states('sensor.pool_chem_free_chlorine') %}
+{% set val   = raw | float(0) %}
+
+{# --- is pH usable? --- #}
+{% set raw_ph = states('sensor.pool_chem_ph') %}
+{% set ph_val = raw_ph | float(0) %}
+{% set ph_err = raw_ph in ['unavailable','unknown'] or ph_val == 0 or ph_val >= 14 %}
+
+{# --- is the measured FC itself broken? --- #}
+{% set fc_broken = raw in ['unavailable','unknown'] or val >= 6553 or (val == 0) %}
+
+{# --- is ORP usable for a fallback estimate? --- #}
+{% set orp    = states('sensor.pool_chem_orp') | float(0) %}
+{% set orp_ok = orp > 0 and orp < 65535 %}
+
+{# --- estimate FC from ORP (Nernst-style) only when pH is bad but ORP is good --- #}
+{% set rc_val = (10**((orp - 660) / 83)
+                 * (1 + 10**(7.2 - 7.53))
+                 / (1 + 10**(7.5 - 7.53))) | round(2)
+                if (ph_err and orp_ok) else val %}
+
+{# Error only when FC is broken AND pH is fine (i.e. no usable fallback path) #}
+{% set is_err = fc_broken and not ph_err %}
+
+{% if is_err %}
+  Error
+{% elif ph_err %}
+  Recalc {{ rc_val }} ppm       {# pH down/invalid → FC estimated from ORP #}
+{% elif rc_val >= 3.0 - 0.5 and rc_val <= 3.0 + 0.5 %}
+  Ideal {{ rc_val }} ppm
+{% elif rc_val > 3.0 + 0.5 %}
+  Too High {{ rc_val }} ppm
+{% else %}
+  Too Low {{ rc_val }} ppm
+{% endif %}
+```
+
+**Logic summary**
+
+| pH state | ORP state | Free Chlorine shows |
+|---|---|---|
+| valid | any | measured FC, classed against 3.0 ± 0.5 ppm |
+| invalid (down/out of range) | valid | **Recalc** — FC estimated from ORP |
+| invalid | invalid | **Error** |
+
+> The recalc constants (`660`, `83`, `7.53`) are an empirical Nernst-style fit; the
+> `7.2`/`7.5` terms are the assumed pH bracket. Adjust if you calibrate against a
+> test kit.
+
+---
+
+## 6. Recreating / restoring the tiles
 
 The full Lovelace YAML for both sections is in **[`pool-chemistry-tiles.yaml`](pool-chemistry-tiles.yaml)**. To restore:
 
