@@ -19,8 +19,8 @@ Two Home Assistant dashboard tiles ("Pool Chemistry (main)" and "Pool Chemistry 
 ├── docs/
 │   └── ai-context.md         This file
 └── releases/
-    └── v1.0.0/
-        └── card.yaml         Frozen snapshot of card.yaml at v1.0.0
+    └── v0.1.0/
+        └── card.yaml         Frozen snapshot of card.yaml at v0.1.0
 ```
 
 Canonical editable file is the root `card.yaml`. `releases/vX.Y.Z/card.yaml` are immutable snapshots.
@@ -116,7 +116,7 @@ None. This project is dashboard-only — no `automations.yaml`, no scripts, no h
 | 2 | Main tile: temperature, free chlorine, pH gauge bars |
 | 3 | Supporting tile: ORP, salinity, EC, TDS bars |
 | 4 | Error-state handling + ORP→free-chlorine recalc fallback |
-| 5 | Restructure into convention docs + GitHub repo (v1.0.0) |
+| 5 | Restructure into convention docs + GitHub repo (v0.1.0) |
 
 ## How to publish a new version
 

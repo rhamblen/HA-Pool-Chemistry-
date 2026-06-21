@@ -22,7 +22,7 @@ Two Home Assistant dashboard tiles that turn a Tuya 7-in-1 pool tester into an a
 
 | Version | Status | Features |
 |---|---|---|
-| 1.0.0 | ✅ Released | Main + supporting tiles, 7 gauge bars, error states, ORP→chlorine recalc fallback |
+| 0.1.0 | ✅ Released | Main + supporting tiles, 7 gauge bars, error states, ORP→chlorine recalc fallback |
 | — | 🔜 Planned | Optional `input_number` helpers for editable targets; battery & signal badges |
 
 See the [CHANGELOG](CHANGELOG.md) for details.
