@@ -114,4 +114,4 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## Licence
 
-Not yet specified — open an issue or ask the maintainer if you intend to reuse. MIT is the likely default.
+[MIT](LICENSE) © 2026 Richard Hamblen.
